@@ -112,7 +112,7 @@ export class MissionDirector {
     let extra = '';
     if (this.mission.timeLimit && this.stepIndex >= 2) extra = ` &nbsp; ⏱ <b>${Math.max(0, Math.ceil(this.timer))}s</b>`;
     if (s.kind === 'rob') extra = ` &nbsp; 💰 <b>${Math.floor(this.robProgress * 100)}%</b>`;
-    if (s.kind === 'escape') extra = ' &nbsp; (marker opens when ★ hits zero)';
+    if (s.kind === 'escape') extra = '';
     return `<b>${this.mission.title}</b><br>${s.label} <span class="dist">${d}m</span>${extra}`;
   }
 }

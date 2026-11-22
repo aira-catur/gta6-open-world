@@ -42,13 +42,13 @@ export function applyScreenshotScene(game, name) {
     game.missions.stepIndex = 2;
     game.missions.carryingCrate = true;
     game.money = 1250; game.totalEarned = 1250;
-    posePlayerDriving(game, 1248, 927, 0, 235); // eastbound lane of the y=900 road
+    posePlayerDriving(game, 1120, 927, 0, 235); // eastbound lane of the y=900 road
     game.wanted.stars = 3; game.wanted.heat = 0.4; game.wanted.seenNow = true;
-    poseCruiser(game, 1085, 934, 0.08, 250);
-    poseCruiser(game, 995, 966, -0.06, 245);
-    poseOfficer(game, 1335, 1015); poseOfficer(game, 1170, 870);
-    game.scatterTrafficNear(1248, 927);
-    game.scatterPedsNear(1248, 927);
+    poseCruiser(game, 982, 934, 0.08, 250);
+    poseCruiser(game, 905, 966, -0.06, 245);
+    poseOfficer(game, 1235, 1015); poseOfficer(game, 1070, 868);
+    game.scatterTrafficNear(1120, 927);
+    game.scatterPedsNear(1120, 927);
   } else if (name === 'foot') {
     // On foot in Palm Heights at the start of Job 1: the teal coupe waits in its glow
     // one block north, traffic rolls past, the crowd strolls the sidewalks.

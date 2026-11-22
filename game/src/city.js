@@ -204,8 +204,28 @@ export function drawCity(ctx, city, cam) {
     if (l.x < vx || l.y < vy || l.x > vx + vw || l.y > vy + vh) continue;
     ctx.beginPath(); ctx.arc(l.x, l.y, 4, 0, Math.PI * 2); ctx.fill();
   }
-  // harbor water along the south edge strip
-  ctx.fillStyle = '#2e7fb8'; ctx.fillRect(0, WORLD_SIZE - 26, WORLD_SIZE, 26);
+  // Marina boardwalks fill the east and south edge strips (past the last road):
+  // wooden planks, cargo crates and moored boats, then open water.
+  ctx.fillStyle = '#c8a165';
+  ctx.fillRect(2352, 0, 190, WORLD_SIZE);
+  ctx.fillRect(0, 2352, WORLD_SIZE, 190);
+  ctx.strokeStyle = 'rgba(90,60,25,.4)'; ctx.lineWidth = 2;
+  for (let y = 30; y < WORLD_SIZE; y += 46) { ctx.beginPath(); ctx.moveTo(2352, y); ctx.lineTo(2542, y); ctx.stroke(); }
+  for (let x = 30; x < WORLD_SIZE; x += 46) { ctx.beginPath(); ctx.moveTo(x, 2352); ctx.lineTo(x, 2542); ctx.stroke(); }
+  ctx.fillStyle = '#8a6b42';
+  const crates = [[2400, 300], [2430, 336], [2400, 1150], [2445, 1900], [300, 2400], [1250, 2430], [1980, 2400]];
+  for (const [cx, cy] of crates) { ctx.fillRect(cx, cy, 34, 34); ctx.strokeStyle = '#5d4525'; ctx.strokeRect(cx, cy, 34, 34); }
+  // water: east strip and the south edge
+  ctx.fillStyle = '#2e7fb8';
+  ctx.fillRect(2542, 0, WORLD_SIZE - 2542, WORLD_SIZE);
+  ctx.fillRect(0, 2542, WORLD_SIZE, WORLD_SIZE - 2542);
   ctx.fillStyle = 'rgba(255,255,255,.5)';
-  for (let x = 20; x < WORLD_SIZE; x += 90) ctx.fillRect(x, WORLD_SIZE - 16, 34, 3);
+  for (let y = 30; y < WORLD_SIZE; y += 90) ctx.fillRect(2580, y, 3, 34);
+  for (let x = 20; x < WORLD_SIZE; x += 90) ctx.fillRect(x, WORLD_SIZE - 60, 34, 3);
+  // moored boats along the east quay
+  for (const by of [420, 1080, 1750, 2280]) {
+    ctx.fillStyle = '#f2f5f7';
+    ctx.beginPath(); ctx.ellipse(2596, by, 15, 30, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e63946'; ctx.fillRect(2590, by - 8, 12, 16);
+  }
 }

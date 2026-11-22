@@ -54,7 +54,9 @@ export function spawnTrafficFleet(count = 26) {
     fleet.push(car);
   }
   // a few parked cars on block edges for easy early steals
-  const parkedSpots = [[770, 620], [1010, 780], [1460, 330], [1910, 1230], [560, 1680], [2360, 2130]];
+  // Parked cars sit on the sidewalk strip between a road's edge and the buildings
+  // (road band ends at x=546, the block's first building starts at x=568, and so on).
+  const parkedSpots = [[556, 620], [1010, 780], [1460, 330], [1910, 1230], [556, 1680], [2360, 2130]];
   parkedSpots.forEach(([x, y], i) => {
     const car = new TrafficCar(x, y, i % 2 ? 0 : Math.PI / 2, VEHICLE_MODELS[(i + 2) % VEHICLE_MODELS.length], 'parked');
     car.speed = 0; fleet.push(car);
