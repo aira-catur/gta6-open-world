@@ -1,79 +1,85 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// shots.js — deterministic screenshot scenes for the entry's screenshots/ folder.
+// One job: when the page is opened with ?shot=<name>, pose the live game into a real,
+// playable state (cover chase, on-foot market, high-wanted pursuit, vault robbery)
+// so the maker's screenshots are honest renders of systems that actually run.
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
-
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
+export function requestedShotName() {
+  return new URLSearchParams(location.search).get('shot') || '';
 }
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
-  }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
-  }
-  return best;
+// Pose helpers shared by the scenes: place the player car and patrol units on real roads.
+function posePlayerDriving(game, x, y, angle, speed) {
+  const car = game.missionCar;
+  car.x = x; car.y = y; car.angle = angle; car.speed = speed;
+  game.player.vehicle = car;
+  game.player.x = x; game.player.y = y;
+  game.camera.x = x; game.camera.y = y;
+  return car;
 }
 
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+function poseCruiser(game, x, y, angle, speed) {
+  const cruiser = game.makePoliceCruiser(x, y);
+  cruiser.angle = angle; cruiser.speed = speed;
+  game.police.cruisers.push(cruiser);
+  return cruiser;
+}
+
+function poseOfficer(game, x, y) {
+  const officer = game.makePoliceOfficer(x, y);
+  game.police.officers.push(officer);
+  return officer;
+}
+
+export function applyScreenshotScene(game, name) {
+  if (!name) return;
+  game.beginGame(true);
+  if (name === 'cover') {
+    // Downtown Neon: Rico drives the stolen teal coupe, wanted 3, patrol on his tail,
+    // Job 2 delivery marker live, traffic and pedestrians all around. The full game in one frame.
+    game.missions.restore(1, 1);
+    game.missions.stepIndex = 2;
+    game.money = 1250; game.totalEarned = 1250;
+    posePlayerDriving(game, 1248, 1240, 0, 235);
+    game.wanted.stars = 3; game.wanted.heat = 0.4;
+    poseCruiser(game, 1105, 1210, 0.15, 250);
+    poseCruiser(game, 1060, 1295, -0.1, 245);
+    poseOfficer(game, 1330, 1330); poseOfficer(game, 1180, 1150);
+    game.scatterTrafficNear(1248, 1240);
+    game.scatterPedsNear(1248, 1240);
+  } else if (name === 'foot') {
+    // On foot in Neon Market at the start of Job 1: marker beacon, parked cars, crowd.
+    game.missions.restore(0, 0);
+    game.money = 50;
+    game.player.x = 470; game.player.y = 395; game.player.angle = 0.6;
+    game.camera.x = game.player.x; game.camera.y = game.player.y;
+    game.scatterTrafficNear(470, 395);
+    game.scatterPedsNear(470, 395);
+  } else if (name === 'chase') {
+    // Five-star pursuit on the Harbor straight: cruisers boxing Rico in at speed.
+    game.missions.restore(2, 2);
+    game.missions.stepIndex = 2;
+    game.money = 2900; game.totalEarned = 2900;
+    posePlayerDriving(game, 348, 1900, Math.PI / 2, 320);
+    game.wanted.stars = 5; game.wanted.heat = 0.7;
+    poseCruiser(game, 330, 1745, Math.PI / 2, 330);
+    poseCruiser(game, 395, 1770, Math.PI / 2, 325);
+    poseCruiser(game, 300, 2065, Math.PI / 2, 300);
+    poseOfficer(game, 420, 1980); poseOfficer(game, 275, 1850);
+    game.scatterTrafficNear(348, 1900);
+    game.scatterPedsNear(348, 1900);
+  } else if (name === 'mission') {
+    // The Sunset Vault robbery in progress: Rico in the bank glow, bag 62% full, patrol closing in.
+    game.missions.restore(2, 2);
+    game.missions.stepIndex = 1;
+    game.missions.robProgress = 0.62;
+    game.money = 2050; game.totalEarned = 2050;
+    game.player.x = 2298; game.player.y = 360; game.player.angle = -0.8;
+    game.camera.x = game.player.x; game.camera.y = game.player.y;
+    game.wanted.stars = 4; game.wanted.heat = 0.3;
+    poseCruiser(game, 2170, 470, -0.7, 60);
+    poseOfficer(game, 2210, 300); poseOfficer(game, 2380, 430); poseOfficer(game, 2260, 470);
+    game.scatterTrafficNear(2298, 360);
+    game.scatterPedsNear(2298, 360);
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
-  }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+  game.renderFrame();
 }

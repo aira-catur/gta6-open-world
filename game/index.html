@@ -3,17 +3,96 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Neon Harbor — Grand Open World</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1622; font-family: "Segoe UI", Arial, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .panel { background: rgba(8, 18, 30, .82); border: 2px solid rgba(255, 196, 64, .85); border-radius: 10px; color: #fff; }
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #hudMoney { position: absolute; top: 12px; left: 12px; padding: 8px 14px; font-size: 22px; font-weight: 800; color: #7dff8a; letter-spacing: .5px; }
+  #hudMoney small { display: block; font-size: 11px; color: #ffd75e; font-weight: 700; letter-spacing: 2px; }
+  #hudStars { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 18px; font-size: 26px; letter-spacing: 4px; color: #3a4a5a; }
+  #hudStars .lit { color: #ffcf3f; text-shadow: 0 0 8px #ff9d00; }
+  #hudStars .lbl { display: block; text-align: center; font-size: 10px; letter-spacing: 3px; color: #ffb3b3; font-weight: 700; }
+  #hudMission { position: absolute; top: 86px; left: 50%; transform: translateX(-50%); max-width: 560px; padding: 8px 16px; font-size: 15px; text-align: center; }
+  #hudMission b { color: #ffd75e; }
+  #hudMission .dist { color: #7dd7ff; font-weight: 700; }
+  #minimap { position: absolute; top: 12px; right: 12px; border: 2px solid rgba(255,196,64,.85); border-radius: 10px; background: rgba(8,18,30,.85); }
+  #hudDistrict { position: absolute; top: 216px; right: 12px; width: 190px; text-align: center; padding: 4px 0; font-size: 13px; font-weight: 700; color: #ffe9a8; letter-spacing: 1px; }
+  #hudHelp { position: absolute; left: 12px; bottom: 12px; padding: 8px 12px; font-size: 12.5px; line-height: 1.5; color: #d9ecff; }
+  #hudHelp b { color: #ffd75e; }
+  #hudSpeed { position: absolute; right: 12px; bottom: 12px; padding: 8px 16px; font-size: 26px; font-weight: 800; color: #fff; display: none; text-align: center; }
+  #hudSpeed small { display: block; font-size: 10px; color: #7dd7ff; letter-spacing: 2px; }
+  #hudHealthWrap { position: absolute; left: 12px; bottom: 118px; width: 190px; padding: 6px 10px; }
+  #hudHealthWrap .lbl { font-size: 10px; letter-spacing: 2px; color: #ffb3b3; font-weight: 700; }
+  #healthBarOuter { height: 10px; background: #40222a; border-radius: 5px; margin-top: 3px; }
+  #healthBar { height: 10px; width: 100%; background: #ff5d73; border-radius: 5px; }
+  #bustWrap { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); width: 300px; padding: 6px 12px; display: none; text-align: center; }
+  #bustWrap .lbl { font-size: 11px; letter-spacing: 3px; color: #ff8f8f; font-weight: 800; }
+  #bustBarOuter { height: 10px; background: #40222a; border-radius: 5px; margin-top: 4px; }
+  #bustBar { height: 10px; width: 0%; background: #ff4040; border-radius: 5px; }
+  #toast { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); padding: 10px 22px; font-size: 17px; font-weight: 700; color: #fff; display: none; text-align: center; }
+  #prompt { position: absolute; left: 50%; bottom: 170px; transform: translateX(-50%); padding: 7px 16px; font-size: 15px; font-weight: 700; color: #ffe9a8; display: none; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; background: radial-gradient(ellipse at 50% 35%, rgba(255,170,60,.20), rgba(4,10,18,.88) 65%); color: #fff; text-align: center; z-index: 5; }
+  .overlay h1 { font-size: 54px; margin: 0 0 4px; letter-spacing: 2px; color: #ffd75e; text-shadow: 0 4px 0 #b3541e, 0 8px 24px rgba(0,0,0,.6); }
+  .overlay h2 { font-size: 34px; margin: 0 0 8px; color: #ffd75e; }
+  .overlay p { max-width: 620px; font-size: 16px; line-height: 1.55; color: #e8f3ff; margin: 6px 20px; }
+  .overlay .controls { font-size: 14px; color: #bcd8f5; line-height: 1.7; }
+  .overlay button { pointer-events: auto; margin: 8px 6px 0; padding: 12px 30px; font-size: 18px; font-weight: 800; border: 0; border-radius: 8px; background: #ffc440; color: #231600; cursor: pointer; }
+  .overlay button.secondary { background: #2c4a68; color: #e8f3ff; }
+  #pauseScreen, #bustedScreen, #winScreen { display: none; }
+  .tag { font-size: 13px; letter-spacing: 4px; color: #7dd7ff; font-weight: 800; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="game" aria-label="Neon Harbor open world game canvas"></canvas>
 <p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="hudMoney" class="panel"><small>CASH</small>$<span id="moneyVal">0</span></div>
+  <div id="hudStars" class="panel"><span class="lbl">WANTED</span><span id="starsVal"></span></div>
+  <div id="hudMission" class="panel"></div>
+  <canvas id="minimap" width="190" height="190"></canvas>
+  <div id="hudDistrict" class="panel">DOWNTOWN</div>
+  <div id="hudHealthWrap" class="panel"><span class="lbl">HEALTH</span><div id="healthBarOuter"><div id="healthBar"></div></div></div>
+  <div id="hudHelp" class="panel"><b>WASD</b> move / drive &nbsp; <b>E</b> enter / exit car<br><b>F</b> punch &nbsp; <b>SHIFT</b> sprint &nbsp; <b>SPACE</b> handbrake<br><b>P</b> pause &nbsp; <b>M</b> mute &nbsp; Follow the <b style="color:#37e0c8">◆ marker</b></div>
+  <div id="hudSpeed" class="panel"><span id="speedVal">0</span><small>KM/H</small></div>
+  <div id="bustWrap" class="panel"><span class="lbl">BUSTED METER — MOVE!</span><div id="bustBarOuter"><div id="bustBar"></div></div></div>
+  <div id="prompt" class="panel"></div>
+  <div id="toast" class="panel"></div>
+</div>
+
+<div id="startScreen" class="overlay">
+  <div class="tag">AN ORIGINAL OPEN-WORLD CRIME GAME</div>
+  <h1>NEON HARBOR</h1>
+  <p><b>Rico Marlin</b> just hit the sun-soaked streets of <b>Neon Harbor</b> with $50 and a borrowed phone.
+  Vera Sol, the city's best fixer, has work: steal wheels, run harbor crates, and crack the Sol Bank sunset vault.
+  Finish her three-job chain, dodge the Harbor Patrol, and own the night.</p>
+  <p class="controls">WASD / Arrows — move &amp; drive &nbsp;•&nbsp; E — steal / exit car &nbsp;•&nbsp; F — punch &nbsp;•&nbsp; SHIFT — sprint<br>
+  Raise ★ wanted stars and the patrol hunts you. Break their sight to cool down. Progress auto-saves.</p>
+  <div><button id="btnNew">▶ NEW GAME</button><button id="btnContinue" class="secondary">CONTINUE</button></div>
+</div>
+
+<div id="pauseScreen" class="overlay">
+  <h2>⏸ PAUSED</h2>
+  <p id="pauseStats"></p>
+  <div><button id="btnResume">RESUME</button><button id="btnRestart" class="secondary">RESTART STORY</button></div>
+</div>
+
+<div id="bustedScreen" class="overlay">
+  <h2>🚔 BUSTED!</h2>
+  <p>The Harbor Patrol dragged Rico in. Vera paid a $100 fine from your cash and reset the current job.</p>
+  <div><button id="btnBustedOk">BACK TO THE STREETS</button></div>
+</div>
+
+<div id="winScreen" class="overlay">
+  <h2>🌅 KING OF NEON HARBOR</h2>
+  <p id="winStats"></p>
+  <p>All three of Vera's jobs are done. The city is yours — free-roam, stack cash, and see how long you can outrun a 5-star patrol.</p>
+  <div><button id="btnWinOk">KEEP FREE-ROAMING</button></div>
+</div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
