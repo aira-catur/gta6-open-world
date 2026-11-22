@@ -23,9 +23,9 @@ export const MISSION_CHAIN = [
     reward: 800,
     timeLimit: 170,
     steps: [
-      { kind: 'goto', label: 'Reach the smuggled crate at Harbor Docks', x: 348, y: 2148 },
-      { kind: 'pickup', label: 'Pick up the crate (walk into the glow)', x: 348, y: 2148 },
-      { kind: 'deliver-any', label: 'Deliver the crate to Mercado Central — timer running!', x: 1148, y: 1248 },
+      { kind: 'goto', label: 'Reach the smuggled crate at Harbor Docks', x: 348, y: 1848 },
+      { kind: 'pickup', label: 'Pick up the crate (walk into the glow)', x: 348, y: 1848 },
+      { kind: 'deliver-any', label: 'Deliver the crate to Mercado Central — timer running!', x: 948, y: 1248 },
     ],
   },
   {
@@ -37,7 +37,7 @@ export const MISSION_CHAIN = [
     steps: [
       { kind: 'goto', label: 'Reach Sol Bank Tower', x: 2298, y: 348 },
       { kind: 'rob', label: 'ROB the vault — stand in the glow and hold your nerve', x: 2298, y: 348 },
-      { kind: 'escape', label: 'Lose the patrol (★ to zero), then reach the Palm Hideout', x: 298, y: 298 },
+      { kind: 'escape', label: 'Lose the patrol (★ to zero), then reach the Palm Hideout', x: 200, y: 556 },
     ],
   },
 ];

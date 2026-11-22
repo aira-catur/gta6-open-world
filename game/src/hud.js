@@ -40,7 +40,9 @@ export class HudPresenter {
     this.el.hudMission.innerHTML = game.missions.hudText(game.player.driving ? game.player.vehicle : game.player);
     const px = game.player.driving ? game.player.vehicle.x : game.player.x;
     const py = game.player.driving ? game.player.vehicle.y : game.player.y;
-    this.el.hudDistrict.textContent = districtAt(px, py).name + (game.wanted.escaping ? ' — ESCAPING…' : '');
+    this.el.hudDistrict.textContent = districtAt(px, py).name;
+    const lbl = document.getElementById('starsLbl');
+    if (lbl) lbl.textContent = game.wanted.stars === 0 ? 'WANTED' : (game.wanted.escaping ? 'ESCAPING — BREAK SIGHT!' : 'WANTED — PATROL ACTIVE');
     if (game.player.driving) {
       this.el.hudSpeed.style.display = 'block';
       this.el.speedVal.textContent = String(Math.round(Math.abs(game.player.vehicle.speed) * 0.36));
@@ -56,9 +58,14 @@ export class HudPresenter {
   // The minimap: whole city shrunk to 190px, refreshed every frame with live blips.
   drawMinimap(game) {
     const mm = this.mm, S = 190, k = S / WORLD_SIZE;
-    mm.fillStyle = '#20303f'; mm.fillRect(0, 0, S, S);
+    mm.fillStyle = '#2c4356'; mm.fillRect(0, 0, S, S);
+    // city blocks
+    mm.fillStyle = '#3d5a75';
+    for (let bx = 0; bx < 5; bx++) for (let by = 0; by < 5; by++) {
+      mm.fillRect((bx * 450 + 96) * k, (by * 450 + 96) * k, 354 * k, 354 * k);
+    }
     // roads
-    mm.fillStyle = '#4a5a68';
+    mm.fillStyle = '#16222e';
     for (let i = 0; i < 6; i++) {
       mm.fillRect(i * 450 * k, 0, 96 * k, S);
       mm.fillRect(0, i * 450 * k, S, 96 * k);
@@ -89,7 +96,8 @@ export class HudPresenter {
     const ang = game.player.driving ? game.player.vehicle.angle : game.player.angle;
     mm.save(); mm.translate(px, py); mm.rotate(ang);
     mm.fillStyle = '#ffd75e';
-    mm.beginPath(); mm.moveTo(7, 0); mm.lineTo(-5, -4.5); mm.lineTo(-5, 4.5); mm.closePath(); mm.fill();
+    mm.beginPath(); mm.moveTo(9, 0); mm.lineTo(-6, -6); mm.lineTo(-6, 6); mm.closePath(); mm.fill();
+    mm.strokeStyle = '#231600'; mm.lineWidth = 1.4; mm.stroke();
     mm.restore();
     // viewport box
     mm.strokeStyle = 'rgba(255,255,255,.5)'; mm.lineWidth = 1;

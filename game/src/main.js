@@ -4,7 +4,7 @@
 // Harbor Patrol and wanted stars (police.js), Vera's mission chain (missions.js),
 // the HUD + minimap (hud.js), synth sound (audio.js) and saves (save.js).
 
-import { buildCityGrid, drawCity, districtAt, WORLD_SIZE } from './city.js';
+import { buildCityGrid, drawCity, districtAt, nearestRoadPose, WORLD_SIZE } from './city.js';
 import { PlayerOnFoot, drawPlayer } from './player.js';
 import { spawnTrafficFleet, updateTrafficCar, drivePlayerVehicle, collideVehicles, drawVehicle, TrafficCar, VEHICLE_MODELS } from './vehicles.js';
 import { spawnPedestrians, updatePedestrian, knockDownPedestrian, drawPedestrian } from './pedestrians.js';
@@ -123,14 +123,18 @@ export class GrandOpenWorldGame {
 
   scatterTrafficNear(x, y) {
     // Pull a handful of fleet cars onto the roads framing the shot so scenes look alive.
-    const spots = [[-260, -40, 0], [240, 60, Math.PI], [-60, -300, Math.PI / 2], [90, 300, -Math.PI / 2], [-420, 130, 0]];
+    // Every spot is snapped to a real road pose first — a car on a roof kills the shot.
+    const spots = [[-260, -40], [240, 60], [-60, -300], [90, 300], [-420, 130]];
     let n = 0;
     for (const car of this.cars) {
       if (car === this.missionCar || car.kind !== 'traffic' || n >= spots.length) continue;
-      const [dx, dy, a] = spots[n++];
-      car.x = Math.max(60, Math.min(WORLD_SIZE - 60, x + dx));
-      car.y = Math.max(60, Math.min(WORLD_SIZE - 60, y + dy));
-      car.angle = a; car.speed = car.targetSpeed;
+      const [dx, dy] = spots[n++];
+      const pose = nearestRoadPose(
+        Math.max(60, Math.min(WORLD_SIZE - 60, x + dx)),
+        Math.max(60, Math.min(WORLD_SIZE - 60, y + dy)));
+      car.x = pose.x; car.y = pose.y;
+      car.angle = pose.vertical ? (n % 2 ? Math.PI / 2 : -Math.PI / 2) : (n % 2 ? 0 : Math.PI);
+      car.speed = car.targetSpeed;
     }
   }
 
@@ -412,6 +416,7 @@ export class GrandOpenWorldGame {
     if ((this.state === 'playing' || this.state === 'paused') &&
         (this.input.wasPressed('KeyP') || this.input.wasPressed('Escape'))) this.togglePause();
     if (this.state === 'playing') this.updateGame(dt);
+    else if (this.state === 'shot') { this.hud.updateHudPanel(this, 0); this.hud.drawMinimap(this); }
     this.renderFrame();
     this.input.endFrame();
     requestAnimationFrame((t) => this.gameLoop(t));

@@ -49,6 +49,23 @@ export function roadCenterLines() {
   return lines;
 }
 
+// Snap any point to the nearest road pose: returns {x, y, vertical} inside a road band,
+// used for traffic spawns, screenshot scatter and scene poses so cars never sit on roofs.
+export function nearestRoadPose(x, y) {
+  let best = null;
+  for (let i = 0; i < ROAD_COUNT; i++) {
+    const rx = i * ROAD_PITCH;
+    const cx = Math.max(rx + 14, Math.min(rx + ROAD_WIDTH - 14, x));
+    const dv = Math.abs(cx - x);
+    if (!best || dv < best.d) best = { x: cx, y, vertical: true, d: dv };
+    const ry = i * ROAD_PITCH;
+    const cy = Math.max(ry + 14, Math.min(ry + ROAD_WIDTH - 14, y));
+    const dh = Math.abs(cy - y);
+    if (dh < best.d) best = { x, y: cy, vertical: false, d: dh };
+  }
+  return best;
+}
+
 // Seeded layout: one or two buildings inside every block, each with a name and roof colour.
 export function buildCityGrid() {
   const buildings = [];
@@ -148,9 +165,22 @@ export function drawCity(ctx, city, cam) {
     ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h);
     ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(b.x + 7, b.y + 7, b.w - 14, b.h - 14);
     ctx.strokeStyle = 'rgba(40,25,10,.55)'; ctx.lineWidth = 3; ctx.strokeRect(b.x, b.y, b.w, b.h);
-    ctx.fillStyle = 'rgba(255,255,255,.85)';
-    const rows = Math.floor(b.h / 26), cols = Math.floor(b.w / 26);
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) ctx.fillRect(b.x + 10 + c * 26, b.y + 10 + r * 26, 9, 12);
+    // rooftop furniture: parapet shade, AC units, a skylight — roofs must not read as waffles
+    ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(b.x + 16, b.y + 16, b.w - 32, b.h - 32);
+    ctx.fillStyle = 'rgba(70,70,80,.5)';
+    const acSeed = (b.x * 7 + b.y * 13) % 5;
+    ctx.fillRect(b.x + 22 + acSeed * 9, b.y + 22, 26, 18);
+    if (b.w > 190) ctx.fillRect(b.x + b.w - 60, b.y + b.h - 46, 30, 20);
+    ctx.fillStyle = 'rgba(190,230,245,.5)';
+    if (b.h > 170) ctx.fillRect(b.x + b.w / 2 - 20, b.y + b.h / 2 - 12, 40, 24);
+    // sparse windows in a broken rhythm, only near the roof edge (top-down facade hint)
+    ctx.fillStyle = 'rgba(255,255,255,.8)';
+    const rows = Math.floor(b.h / 30), cols = Math.floor(b.w / 30);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if ((r * 31 + c * 17 + acSeed) % 3 === 0) continue;
+      if (r > 0 && r < rows - 1 && c > 0 && c < cols - 1) continue; // edges only
+      ctx.fillRect(b.x + 11 + c * 30, b.y + 11 + r * 30, 10, 13);
+    }
     if (cam.zoom > 0.8) {
       ctx.fillStyle = '#2b1c08'; ctx.font = '700 13px Arial'; ctx.textAlign = 'center';
       ctx.fillText(b.name.toUpperCase(), b.x + b.w / 2, b.y + b.h + 17);

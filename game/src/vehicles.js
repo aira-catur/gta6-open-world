@@ -1,6 +1,14 @@
 // vehicles.js — every car in Neon Harbor: the traffic fleet, arcade driving physics,
 // carjacking entry/exit and vehicle drawing (civilian, mission and patrol liveries share drawVehicle).
-import { collideWithBuildings, isOnRoad, roadCenterLines, WORLD_SIZE } from './city.js';
+import { collideWithBuildings, roadCenterLines, ROAD_PITCH, ROAD_WIDTH, WORLD_SIZE } from './city.js';
+
+// Lane offset inside a road band for a heading: right-hand traffic.
+// Moving +y or -x hugs one side, moving -y or +x the other.
+export function laneOffsetFor(angle) {
+  const dx = Math.cos(angle), dy = Math.sin(angle);
+  if (Math.abs(dy) > Math.abs(dx)) return dy > 0 ? ROAD_WIDTH - 27 : 27;
+  return dx > 0 ? 27 : ROAD_WIDTH - 27;
+}
 
 export const VEHICLE_MODELS = [
   { name: 'Brisa Compact', color: '#e63946', topSpeed: 330, accel: 260 },
@@ -29,19 +37,20 @@ export class TrafficCar {
 }
 
 export function spawnTrafficFleet(count = 26) {
-  const centers = roadCenterLines();
   const fleet = [];
   for (let i = 0; i < count; i++) {
     const model = VEHICLE_MODELS[i % VEHICLE_MODELS.length];
     const vertical = i % 2 === 0;
-    const line = centers[i % centers.length];
+    const roadStart = (i % 6) * ROAD_PITCH;
     const along = 200 + ((i * 397) % (WORLD_SIZE - 400));
     const dir = i % 4 < 2 ? 1 : -1;
-    const laneOff = dir > 0 ? 22 : -22;
+    const angle = vertical ? (dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (dir > 0 ? 0 : Math.PI);
+    const lane = roadStart + laneOffsetFor(angle);
     const car = vertical
-      ? new TrafficCar(line + laneOff, along, dir > 0 ? Math.PI / 2 : -Math.PI / 2, model)
-      : new TrafficCar(along, line + laneOff, dir > 0 ? 0 : Math.PI, model);
+      ? new TrafficCar(lane, along, angle, model)
+      : new TrafficCar(along, lane, angle, model);
     car.speed = car.targetSpeed;
+    car.turnCooldown = 2 + (i % 5);
     fleet.push(car);
   }
   // a few parked cars on block edges for easy early steals
@@ -53,7 +62,8 @@ export function spawnTrafficFleet(count = 26) {
   return fleet;
 }
 
-// Traffic brains: follow the lane, slow for the car ahead, turn at some intersections.
+// Traffic brains: lane-locked grid driving. A car holds its lane, slows for the car
+// ahead, and may turn 90° at an intersection centre — so it can never enter a block.
 export function updateTrafficCar(car, dt, allCars, playerCar) {
   if (car.kind === 'parked' || car === playerCar) return;
   if (!car.driverInside) return; // a car the player stepped out of stays where it was left
@@ -66,24 +76,37 @@ export function updateTrafficCar(car, dt, allCars, playerCar) {
   }
   if (playerCar && Math.hypot(playerCar.x - fx, playerCar.y - fy) < 52) desired = 0;
   car.speed += Math.sign(desired - car.speed) * Math.min(Math.abs(desired - car.speed), 190 * dt);
-  if (car.speed < 4 && desired > 0) { car.stuckTimer += dt; } else car.stuckTimer = 0;
-  if (car.stuckTimer > 1.6) { // nudge around a jam by turning at the next crossing feel
-    car.angle += Math.PI / 2; car.stuckTimer = 0; car.speed = 40;
+  car.turnCooldown = Math.max(0, (car.turnCooldown || 0) - dt);
+
+  const vertical = Math.abs(Math.sin(car.angle)) > Math.abs(Math.cos(car.angle));
+  // at an intersection centre, sometimes turn onto the crossing road
+  if (car.turnCooldown <= 0) {
+    const centers = roadCenterLines();
+    const nearX = centers.find(c => Math.abs(c - car.x) < 9);
+    const nearY = centers.find(c => Math.abs(c - car.y) < 9);
+    if (nearX !== undefined && nearY !== undefined && Math.random() < 0.4) {
+      const turn = Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2;
+      car.angle += turn;
+      car.turnCooldown = 3;
+      const roadStartX = nearX - ROAD_WIDTH / 2, roadStartY = nearY - ROAD_WIDTH / 2;
+      if (Math.abs(Math.sin(car.angle)) > Math.abs(Math.cos(car.angle))) car.x = roadStartX + laneOffsetFor(car.angle);
+      else car.y = roadStartY + laneOffsetFor(car.angle);
+    }
   }
   car.x += Math.cos(car.angle) * car.speed * dt;
   car.y += Math.sin(car.angle) * car.speed * dt;
-  // keep traffic on the road network: if we drifted onto a block, snap back to nearest road lane
-  if (!isOnRoad(car.x, car.y)) {
-    const centers = roadCenterLines();
-    let bestX = centers[0], bestY = centers[0], bd = 1e9;
-    for (const c of centers) { const d = Math.abs(c - car.x); if (d < bd) { bd = d; bestX = c; } }
-    bd = 1e9;
-    for (const c of centers) { const d = Math.abs(c - car.y); if (d < bd) { bd = d; bestY = c; } }
-    if (Math.abs(bestX - car.x) < Math.abs(bestY - car.y)) { car.x = bestX + (Math.cos(car.angle) > 0 ? 0 : 0) + (Math.sin(car.angle) > 0 ? 22 : -22) * 0; car.x = bestX + (Math.abs(Math.sin(car.angle)) > 0.5 ? (Math.sin(car.angle) > 0 ? 22 : -22) : 0); car.angle = Math.sin(car.angle) > 0 ? Math.PI / 2 : -Math.PI / 2; }
-    else { car.y = bestY + (Math.abs(Math.cos(car.angle)) > 0.5 ? (Math.cos(car.angle) > 0 ? 22 : -22) : 0); car.angle = Math.cos(car.angle) > 0 ? 0 : Math.PI; }
+  // lane discipline: ease the cross-axis coordinate back into this road's lane
+  const roadStart = Math.floor((vertical ? car.x : car.y) / ROAD_PITCH) * ROAD_PITCH;
+  const lanePos = roadStart + laneOffsetFor(car.angle);
+  if (vertical) car.x += (lanePos - car.x) * Math.min(1, dt * 4);
+  else car.y += (lanePos - car.y) * Math.min(1, dt * 4);
+  // world edge: U-turn into the opposite lane
+  if (car.x < 40 || car.x > WORLD_SIZE - 40 || car.y < 40 || car.y > WORLD_SIZE - 40) {
+    car.angle += Math.PI;
+    car.x = Math.max(40, Math.min(WORLD_SIZE - 40, car.x));
+    car.y = Math.max(40, Math.min(WORLD_SIZE - 40, car.y));
+    car.turnCooldown = 3;
   }
-  car.x = Math.max(30, Math.min(WORLD_SIZE - 30, car.x));
-  car.y = Math.max(30, Math.min(WORLD_SIZE - 30, car.y));
 }
 
 // Arcade driving for the vehicle the player currently owns.
