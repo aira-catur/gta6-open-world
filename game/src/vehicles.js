@@ -102,11 +102,14 @@ export function updateTrafficCar(car, dt, allCars, playerCar) {
   const lanePos = roadStart + laneOffsetFor(car.angle);
   if (vertical) car.x += (lanePos - car.x) * Math.min(1, dt * 4);
   else car.y += (lanePos - car.y) * Math.min(1, dt * 4);
-  // world edge: U-turn into the opposite lane
-  if (car.x < 40 || car.x > WORLD_SIZE - 40 || car.y < 40 || car.y > WORLD_SIZE - 40) {
+  // world edge + marina boardwalk: U-turn into the opposite lane before the planks
+  const hitEdge = car.x < 40 || car.y < 40 ||
+    (vertical && car.y > 2332) || (!vertical && car.x > 2332) ||
+    car.x > WORLD_SIZE - 40 || car.y > WORLD_SIZE - 40;
+  if (hitEdge) {
     car.angle += Math.PI;
-    car.x = Math.max(40, Math.min(WORLD_SIZE - 40, car.x));
-    car.y = Math.max(40, Math.min(WORLD_SIZE - 40, car.y));
+    car.x = Math.max(40, Math.min(2332, car.x));
+    car.y = Math.max(40, Math.min(2332, car.y));
     car.turnCooldown = 3;
   }
 }

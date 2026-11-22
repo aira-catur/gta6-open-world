@@ -63,6 +63,9 @@ export function nearestRoadPose(x, y) {
     const dh = Math.abs(cy - y);
     if (dh < best.d) best = { x, y: cy, vertical: false, d: dh };
   }
+  // the marina boardwalks (past 2352 on either axis) are not drivable road
+  best.x = Math.min(best.x, 2332);
+  best.y = Math.min(best.y, 2332);
   return best;
 }
 
