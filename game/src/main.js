@@ -16,7 +16,7 @@ import { saveProgress, loadProgress, clearProgress, hasSaveGame } from './save.j
 import { KeyboardControls } from './input.js';
 import { requestedShotName, applyScreenshotScene } from './shots.js';
 
-const SPAWN = { x: 348, y: 1248 };
+const SPAWN = { x: 348, y: 948 }; // on the Midtown horizontal road, never inside a building
 
 export class GrandOpenWorldGame {
   constructor() {
@@ -166,7 +166,14 @@ export class GrandOpenWorldGame {
       this.sound.blip(300, 0.08, 'sine', 0.12);
       return;
     }
-    const car = this.nearestCarWithin(this.player.x, this.player.y, 56);
+    // While the steal-marked step is live, Vera's coupe wins over any nearer parked car.
+    let car = null;
+    if (this.missions.step && this.missions.step.kind === 'steal-marked' &&
+        Math.hypot(this.missionCar.x - this.player.x, this.missionCar.y - this.player.y) < 84) {
+      car = this.missionCar;
+    } else {
+      car = this.nearestCarWithin(this.player.x, this.player.y, 56);
+    }
     if (!car) return;
     if (car.kind === 'police') { this.hud.showToast('Stealing a patrol cruiser is a great way to get 2 stars… try it at your own risk.', 3); }
     const wasOccupied = car.driverInside && car.kind === 'traffic';
@@ -237,7 +244,7 @@ export class GrandOpenWorldGame {
     const px = this.player.driving ? this.player.vehicle.x : this.player.x;
     const py = this.player.driving ? this.player.vehicle.y : this.player.y;
     const dist = Math.hypot(px - s.x, py - s.y);
-    if (s.kind === 'goto' && dist < 52) this.processMissionEvents(m.advanceStep([]));
+    if (s.kind === 'goto' && dist < 60) this.processMissionEvents(m.advanceStep([]));
     else if (s.kind === 'deliver-car' && this.player.vehicle === this.missionCar && dist < 64) this.processMissionEvents(m.advanceStep([]));
     else if (s.kind === 'pickup' && !this.player.driving && dist < 38) {
       m.carryingCrate = true;
@@ -289,7 +296,6 @@ export class GrandOpenWorldGame {
     }
     if (this.input.wasPressed('KeyE')) this.tryEnterExitVehicle();
     if (this.input.wasPressed('KeyF')) this.tryPunch();
-    if (this.input.wasPressed('KeyP') || this.input.wasPressed('Escape')) this.togglePause();
 
     // traffic + pedestrians
     const playerCar = this.player.vehicle;
@@ -402,6 +408,9 @@ export class GrandOpenWorldGame {
   gameLoop(now) {
     const dt = Math.min(0.033, (now - this.lastTime) / 1000 || 0.016);
     this.lastTime = now;
+    // Pause is handled here, not in updateGame, so the same key can also un-pause.
+    if ((this.state === 'playing' || this.state === 'paused') &&
+        (this.input.wasPressed('KeyP') || this.input.wasPressed('Escape'))) this.togglePause();
     if (this.state === 'playing') this.updateGame(dt);
     this.renderFrame();
     this.input.endFrame();
